@@ -86,7 +86,11 @@ func (c *client) Register() os.Error {
 	return err;
 }
 
-func (c *client) Notify(title string, text string, icon string, callback string) os.Error {
+func (c *client) Notify(title string, text string, etc ...string) os.Error {
+	icon := "";
+	callback := "";
+	if len(etc) > 0 { icon = etc[0] }
+	if len(etc) > 1 { callback = etc[0] }
 	b, err := c.send("NOTIFY",
 		"Application-Name: " + c.appName + "\r\n" +
 		"Notification-Name: go-gntp-notify\r\n" +
