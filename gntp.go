@@ -21,6 +21,7 @@ type client struct {
 	appName          string
 	hashAlgorithm    string
 	encryptAlgorithm string
+	icon             string
 }
 
 func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
@@ -82,11 +83,11 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 }
 
 func NewClient() *client {
-	return &client{"localhost:23053", "", "go-gntp-send", "MD5", "NONE"}
+	return &client{"localhost:23053", "", "go-gntp-send", "MD5", "NONE", ""}
 }
 
 func NewClientWithPassword(password string) *client {
-	return &client{"localhost:23053", password, "go-gntp-send", "MD5", "NONE"}
+	return &client{"localhost:23053", password, "go-gntp-send", "MD5", "NONE", ""}
 }
 
 func (c *client) SetServer(server string) {
@@ -107,6 +108,10 @@ func (c *client) SetEncryptAlgorithm(encryptAlgorithm string) {
 
 func (c *client) SetHashAlgorithm(hashAlgorithm string) {
 	c.hashAlgorithm = hashAlgorithm
+}
+
+func (c *client) SetIcon(icon string) {
+	c.icon = icon
 }
 
 func (c *client) Register() os.Error {
@@ -134,7 +139,7 @@ func (c *client) Register() os.Error {
 }
 
 func (c *client) Notify(title string, text string, etc ...string) os.Error {
-	icon := ""
+	icon := c.icon
 	callback := ""
 	if len(etc) > 0 {
 		icon = etc[0]
