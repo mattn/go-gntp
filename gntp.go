@@ -4,7 +4,8 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
-	//"crypto/aes"
+	"crypto/aes"
+	"crypto/cipher"
 	"fmt"
 	"hash"
 	"io/ioutil"
@@ -50,22 +51,24 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		ha.Write(hv)
 		hs := fmt.Sprintf("%x.%x", ha.Sum(), salt)
 
-		/*
-			in := ([]byte)(stm)
-			out := make([]byte, len(in))
-			switch c.encryptAlgorithm {
-			case "AES":
-				hv = hv[0:24]
-				ci, err := aes.NewCipher(hv)
-				if err != nil {
-					ci.Encrypt(out, in)
-				}
-			case "NONE":
-				out = in
-			default:
-				panic("unknown encrypt algorithm")
+		in := ([]byte)(stm)
+		var out []byte
+		switch c.encryptAlgorithm {
+		case "AES":
+			ci, err := aes.NewCipher(hv[0:24])
+			if err != nil {
+				return nil, err
 			}
-		*/
+			enc := cipher.NewCBCEncrypter(ci, hv[0:16])
+			cin := make([]byte, int(len(in)/16)*16+16)
+			copy(cin[0:], in[0:])
+			out = make([]byte, len(cin))
+			enc.CryptBlocks(out, cin)
+		case "NONE":
+			out = in
+		default:
+			panic("unknown encrypt algorithm")
+		}
 
 		conn.Write([]byte(
 			"GNTP/1.0 " + method + " " + c.encryptAlgorithm + " " + c.hashAlgorithm + ":" + hs + "\r\n"))
