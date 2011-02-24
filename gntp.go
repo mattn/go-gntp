@@ -50,21 +50,30 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		hv := ha.Sum()
 		ha.Reset()
 		ha.Write(hv)
-		hs := fmt.Sprintf("%x.%x", ha.Sum(), salt)
+		saltHex := ha.Sum()
+		hashHdr := fmt.Sprintf("%s:%X.%X", c.hashAlgorithm, saltHex, salt)
 
+		encSalt := make([]byte, 16)
+		encHdr := c.encryptAlgorithm
 		in := ([]byte)(stm)
 		var out []byte
 		switch c.encryptAlgorithm {
 		case "AES":
-			ci, err := aes.NewCipher(hv[0:24])
+			ci, err := aes.NewCipher(encSalt)
 			if err != nil {
 				return nil, err
 			}
-			enc := cipher.NewCBCEncrypter(ci, hv[0:16])
+			enc := cipher.NewCBCEncrypter(ci, saltHex[0:24])
 			cin := make([]byte, int(len(in)/16)*16+16)
 			copy(cin[0:], in[0:])
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
+			nl := len(cin) - len(in)
+			for nn := 0; nn < nl; nn++ {
+				// TODO: PKCS7
+				//out[len(out)-nn-1] = byte(nl)
+			}
+			encHdr += fmt.Sprintf(":%X", encSalt)
 		case "NONE":
 			out = in
 		default:
@@ -72,8 +81,9 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		}
 
 		conn.Write([]byte(
-			"GNTP/1.0 " + method + " " + c.encryptAlgorithm + " " + c.hashAlgorithm + ":" + hs + "\r\n"))
-		conn.Write([]byte(stm))
+			"GNTP/1.0 " + method + " " + encHdr + " " + hashHdr + "\r\n"))
+		conn.Write([]byte(out))
+		conn.Write([]byte("\r\n"))
 		conn.Write([]byte("\r\n"))
 	} else {
 		conn.Write([]byte(
