@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/aes"
+//	"crypto/des"
 	"crypto/cipher"
 	"fmt"
 	"hash"
@@ -24,16 +25,30 @@ type client struct {
 	icon             string
 }
 
+func makeRand(size int) []byte {
+	r := make([]byte, size)
+	for n := 0; n < len(r); n++ {
+		r[n] = uint8(rand.Int() % 256)
+	}
+	return r
+}
+
+func makeSalt(size int) []byte {
+	s := make([]byte, size)
+    cc := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	for n := 0; n < len(s); n++ {
+		s[n] = uint8(cc[rand.Int() % len(cc)])
+	}
+	return s
+}
+
 func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
-	conn, err := net.Dial("tcp", "", c.server)
+	conn, err := net.Dial("tcp", c.server)
 	if err != nil {
 		return nil, err
 	}
 	if len(c.password) > 0 {
-		salt := make([]byte, 8)
-		for n := 0; n < len(salt); n++ {
-			salt[n] = uint8(rand.Int() % 256)
-		}
+		salt := makeSalt(8)
 		var ha hash.Hash
 		switch c.hashAlgorithm {
 		case "MD5":
@@ -50,30 +65,48 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		hv := ha.Sum()
 		ha.Reset()
 		ha.Write(hv)
-		saltHex := ha.Sum()
-		hashHdr := fmt.Sprintf("%s:%X.%X", c.hashAlgorithm, saltHex, salt)
+		key := ha.Sum()
+		hashHdr := fmt.Sprintf("%s:%X.%X", c.hashAlgorithm, key, salt)
 
-		encSalt := make([]byte, 16)
+		ha.Reset()
+		ha.Write([]byte(c.password))
+		ha.Write(salt)
+		hk := ha.Sum()
+
 		encHdr := c.encryptAlgorithm
 		in := ([]byte)(stm)
 		var out []byte
 		switch c.encryptAlgorithm {
 		case "AES":
-			ci, err := aes.NewCipher(encSalt)
+			ci, err := aes.NewCipher(hk[0:24])
 			if err != nil {
 				return nil, err
 			}
-			enc := cipher.NewCBCEncrypter(ci, saltHex[0:24])
+			iv := makeRand(16)
+			enc := cipher.NewCBCEncrypter(ci, iv)
 			cin := make([]byte, int(len(in)/16)*16+16)
 			copy(cin[0:], in[0:])
+			for nn := len(in); nn < len(cin); nn++ {
+				cin[nn] = byte(len(cin)-len(in))
+			}
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
-			nl := len(cin) - len(in)
-			for nn := 0; nn < nl; nn++ {
-				// TODO: PKCS7
-				//out[len(out)-nn-1] = byte(nl)
-			}
-			encHdr += fmt.Sprintf(":%X", encSalt)
+			encHdr += fmt.Sprintf(":%X", iv)
+//		case "DES":
+//			ci, err := des.NewDESCipher(hk[0:8])
+//			if err != nil {
+//				return nil, err
+//			}
+//			iv := makeRand(8)
+//			enc := cipher.NewCBCEncrypter(ci, iv)
+//			cin := make([]byte, int(len(in)/8)*8+8)
+//			copy(cin[0:], in[0:])
+//			for nn := len(in); nn < len(cin); nn++ {
+//				cin[nn] = byte(len(cin)-len(in))
+//			}
+//			out = make([]byte, len(cin))
+//			enc.CryptBlocks(out, cin)
+//			encHdr += fmt.Sprintf(":%X", iv)
 		case "NONE":
 			out = in
 		default:
