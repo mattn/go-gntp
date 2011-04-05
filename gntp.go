@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/aes"
-//	"crypto/des"
+	//	"crypto/des"
 	"crypto/cipher"
 	"fmt"
 	"hash"
@@ -35,9 +35,9 @@ func makeRand(size int) []byte {
 
 func makeSalt(size int) []byte {
 	s := make([]byte, size)
-    cc := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	cc := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	for n := 0; n < len(s); n++ {
-		s[n] = uint8(cc[rand.Int() % len(cc)])
+		s[n] = uint8(cc[rand.Int()%len(cc)])
 	}
 	return s
 }
@@ -78,6 +78,9 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		var out []byte
 		switch c.encryptAlgorithm {
 		case "AES":
+			if len(hk) < 24 {
+				return nil, os.NewError("key length is too short. maybe hash algorithm is wrong fo AES")
+			}
 			ci, err := aes.NewCipher(hk[0:24])
 			if err != nil {
 				return nil, err
@@ -87,30 +90,30 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			cin := make([]byte, int(len(in)/16)*16+16)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
-				cin[nn] = byte(len(cin)-len(in))
+				cin[nn] = byte(len(cin) - len(in))
 			}
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
 			encHdr += fmt.Sprintf(":%X", iv)
-//		case "DES":
-//			ci, err := des.NewDESCipher(hk[0:8])
-//			if err != nil {
-//				return nil, err
-//			}
-//			iv := makeRand(8)
-//			enc := cipher.NewCBCEncrypter(ci, iv)
-//			cin := make([]byte, int(len(in)/8)*8+8)
-//			copy(cin[0:], in[0:])
-//			for nn := len(in); nn < len(cin); nn++ {
-//				cin[nn] = byte(len(cin)-len(in))
-//			}
-//			out = make([]byte, len(cin))
-//			enc.CryptBlocks(out, cin)
-//			encHdr += fmt.Sprintf(":%X", iv)
+			//		case "DES":
+			//			ci, err := des.NewDESCipher(hk[0:8])
+			//			if err != nil {
+			//				return nil, err
+			//			}
+			//			iv := makeRand(8)
+			//			enc := cipher.NewCBCEncrypter(ci, iv)
+			//			cin := make([]byte, int(len(in)/8)*8+8)
+			//			copy(cin[0:], in[0:])
+			//			for nn := len(in); nn < len(cin); nn++ {
+			//				cin[nn] = byte(len(cin)-len(in))
+			//			}
+			//			out = make([]byte, len(cin))
+			//			enc.CryptBlocks(out, cin)
+			//			encHdr += fmt.Sprintf(":%X", iv)
 		case "NONE":
 			out = in
 		default:
-			panic("unknown encrypt algorithm")
+			return nil, os.NewError("unknown encrypt algorithm")
 		}
 
 		conn.Write([]byte(
@@ -157,15 +160,22 @@ func (c *client) SetIcon(icon string) {
 	c.icon = icon
 }
 
-func (c *client) Register() os.Error {
-	b, err := c.send("REGISTER",
-		"Application-Name: "+c.appName+"\r\n"+
-			"Notifications-Count: 1\r\n"+
-			"\r\n"+
-			"Notification-Name: go-gntp-notify\r\n"+
-			"Notification-Display-Name: go-gntp-notify\r\n"+
-			"Notification-Enabled: True\r\n"+
-			"\r\n")
+type Notification struct {
+	Event       string
+	DisplayName string
+	Enabled     bool
+}
+
+func (c *client) Register(n []Notification) os.Error {
+	s := fmt.Sprintf(
+		"Application-Name: %s\r\n"+
+			"Notifications-Count: %d\r\n\r\n",c.appName, len(n))
+	for _, i := range n {
+		s += "Notification-Name: " + i.Event + "\r\n" +
+			"Notification-Display-Name: " + i.DisplayName + "\r\n" +
+			"Notification-Enabled: True\r\n\r\n"
+	}
+	b, err := c.send("REGISTER", s)
 	if err == nil {
 		res := string(b)
 		if res[0:15] == "GNTP/1.0 -ERROR" {
@@ -181,7 +191,7 @@ func (c *client) Register() os.Error {
 	return err
 }
 
-func (c *client) Notify(title string, text string, etc ...string) os.Error {
+func (c *client) Notify(event string, title string, text string, etc ...string) os.Error {
 	icon := c.icon
 	callback := ""
 	if len(etc) > 0 {
@@ -192,7 +202,7 @@ func (c *client) Notify(title string, text string, etc ...string) os.Error {
 	}
 	b, err := c.send("NOTIFY",
 		"Application-Name: "+c.appName+"\r\n"+
-			"Notification-Name: go-gntp-notify\r\n"+
+			"Notification-Name: "+event+"\r\n"+
 			"Notification-Title: "+title+"\r\n"+
 			"Notification-Text: "+text+"\r\n"+
 			"Notification-Icon: "+icon+"\r\n"+
