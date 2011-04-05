@@ -188,7 +188,7 @@ func (c *client) Notify(title string, text string, etc ...string) os.Error {
 		icon = etc[0]
 	}
 	if len(etc) > 1 {
-		callback = etc[0]
+		callback = etc[1]
 	}
 	b, err := c.send("NOTIFY",
 		"Application-Name: "+c.appName+"\r\n"+
