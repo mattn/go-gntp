@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/aes"
-	//	"crypto/des"
+	//"crypto/des"
 	"crypto/cipher"
 	"fmt"
 	"hash"
@@ -95,32 +95,30 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
 			encHdr += fmt.Sprintf(":%X", iv)
-			//		case "DES":
-			//			ci, err := des.NewDESCipher(hk[0:8])
-			//			if err != nil {
-			//				return nil, err
-			//			}
-			//			iv := makeRand(8)
-			//			enc := cipher.NewCBCEncrypter(ci, iv)
-			//			cin := make([]byte, int(len(in)/8)*8+8)
-			//			copy(cin[0:], in[0:])
-			//			for nn := len(in); nn < len(cin); nn++ {
-			//				cin[nn] = byte(len(cin)-len(in))
-			//			}
-			//			out = make([]byte, len(cin))
-			//			enc.CryptBlocks(out, cin)
-			//			encHdr += fmt.Sprintf(":%X", iv)
+		//case "DES":
+		//	ci, err := des.NewDESCipher(hk[0:8])
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//	iv := makeRand(8)
+		//	enc := cipher.NewCBCEncrypter(ci, iv)
+		//	cin := make([]byte, int(len(in)/8)*8+8)
+		//	copy(cin[0:], in[0:])
+		//	for nn := len(in); nn < len(cin); nn++ {
+		//		cin[nn] = byte(len(cin)-len(in))
+		//	}
+		//	out = make([]byte, len(cin))
+		//	enc.CryptBlocks(out, cin)
+		//	encHdr += fmt.Sprintf(":%X", iv)
 		case "NONE":
 			out = in
 		default:
 			return nil, os.NewError("unknown encrypt algorithm")
 		}
 
-		conn.Write([]byte(
-			"GNTP/1.0 " + method + " " + encHdr + " " + hashHdr + "\r\n"))
-		conn.Write([]byte(out))
-		conn.Write([]byte("\r\n"))
-		conn.Write([]byte("\r\n"))
+		conn.Write([]byte("GNTP/1.0 " + method + " " + encHdr + " " + hashHdr + "\r\n"))
+		conn.Write(out)
+		conn.Write([]byte("\r\n\r\n"))
 	} else {
 		conn.Write([]byte(
 			"GNTP/1.0 " + method + " NONE\r\n" + stm + "\r\n"))
