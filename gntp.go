@@ -47,6 +47,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 	if err != nil {
 		return nil, err
 	}
+	defer conn.Close()
 	if len(c.password) > 0 {
 		salt := makeSalt(8)
 		var ha hash.Hash
@@ -87,7 +88,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			}
 			iv := makeRand(16)
 			enc := cipher.NewCBCEncrypter(ci, iv)
-			cin := make([]byte, int(len(in)/16)*16+16)
+			cin := make([]byte, int(len(in)/aes.BlockSize)*aes.BlockSize+aes.BlockSize)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
 				cin[nn] = byte(len(cin) - len(in))
@@ -105,7 +106,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			}
 			iv := makeRand(8)
 			enc := cipher.NewCBCEncrypter(ci, iv)
-			cin := make([]byte, int(len(in)/8)*8+8)
+			cin := make([]byte, int(len(in)/des.BlockSize)*des.BlockSize+des.BlockSize)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
 				cin[nn] = byte(len(cin)-len(in))
@@ -123,7 +124,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			}
 			iv := makeRand(8)
 			enc := cipher.NewCBCEncrypter(ci, iv)
-			cin := make([]byte, int(len(in)/8)*8+8)
+			cin := make([]byte, int(len(in)/des.BlockSize)*des.BlockSize+des.BlockSize)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
 				cin[nn] = byte(len(cin)-len(in))
