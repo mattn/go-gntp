@@ -16,13 +16,27 @@ import (
 	"strings"
 )
 
-type client struct {
-	server           string
-	password         string
-	appName          string
-	hashAlgorithm    string
-	encryptAlgorithm string
-	icon             string
+type Client struct {
+	Server           string
+	Password         string
+	AppName          string
+	HashAlgorithm    string
+	EncryptAlgorithm string
+}
+
+type Notification struct {
+	Event       string
+	DisplayName string
+	Enabled     bool
+}
+
+type Message struct {
+	Event       string
+	Title       string
+	Text        string
+	Icon        string
+	Callback    string
+	DisplayName string
 }
 
 func makeRand(size int) []byte {
@@ -42,16 +56,16 @@ func makeSalt(size int) []byte {
 	return s
 }
 
-func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
-	conn, err := net.Dial("tcp", c.server)
+func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
+	conn, err := net.Dial("tcp", c.Server)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-	if len(c.password) > 0 {
+	if len(c.Password) > 0 {
 		salt := makeSalt(8)
 		var ha hash.Hash
-		switch c.hashAlgorithm {
+		switch c.HashAlgorithm {
 		case "MD5":
 			ha = md5.New()
 		case "SHA1":
@@ -61,23 +75,23 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 		default:
 			return nil, os.NewError("unknown hash algorithm")
 		}
-		ha.Write([]byte(c.password))
+		ha.Write([]byte(c.Password))
 		ha.Write(salt)
 		hv := ha.Sum()
 		ha.Reset()
 		ha.Write(hv)
 		key := ha.Sum()
-		hashHdr := fmt.Sprintf("%s:%X.%X", c.hashAlgorithm, key, salt)
+		hashHdr := fmt.Sprintf("%s:%X.%X", c.HashAlgorithm, key, salt)
 
 		ha.Reset()
-		ha.Write([]byte(c.password))
+		ha.Write([]byte(c.Password))
 		ha.Write(salt)
 		hk := ha.Sum()
 
-		encHdr := c.encryptAlgorithm
+		encHdr := c.EncryptAlgorithm
 		in := ([]byte)(stm)
 		var out []byte
-		switch c.encryptAlgorithm {
+		switch c.EncryptAlgorithm {
 		case "AES":
 			if len(hk) < 24 {
 				return nil, os.NewError("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
@@ -109,7 +123,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			cin := make([]byte, int(len(in)/des.BlockSize)*des.BlockSize+des.BlockSize)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
-				cin[nn] = byte(len(cin)-len(in))
+				cin[nn] = byte(len(cin) - len(in))
 			}
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
@@ -127,7 +141,7 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 			cin := make([]byte, int(len(in)/des.BlockSize)*des.BlockSize+des.BlockSize)
 			copy(cin[0:], in[0:])
 			for nn := len(in); nn < len(cin); nn++ {
-				cin[nn] = byte(len(cin)-len(in))
+				cin[nn] = byte(len(cin) - len(in))
 			}
 			out = make([]byte, len(cin))
 			enc.CryptBlocks(out, cin)
@@ -148,48 +162,14 @@ func (c *client) send(method string, stm string) (ret []byte, err os.Error) {
 	return ioutil.ReadAll(conn)
 }
 
-func NewClient() *client {
-	return &client{"localhost:23053", "", "go-gntp-send", "MD5", "NONE", ""}
+func NewClient() *Client {
+	return &Client{"localhost:23053", "", "gntp-send", "MD5", "NONE"}
 }
 
-func NewClientWithPassword(password string) *client {
-	return &client{"localhost:23053", password, "go-gntp-send", "MD5", "NONE", ""}
-}
-
-func (c *client) SetServer(server string) {
-	c.server = server
-}
-
-func (c *client) SetPassword(password string) {
-	c.password = password
-}
-
-func (c *client) SetAppName(appName string) {
-	c.appName = appName
-}
-
-func (c *client) SetEncryptAlgorithm(encryptAlgorithm string) {
-	c.encryptAlgorithm = encryptAlgorithm
-}
-
-func (c *client) SetHashAlgorithm(hashAlgorithm string) {
-	c.hashAlgorithm = hashAlgorithm
-}
-
-func (c *client) SetIcon(icon string) {
-	c.icon = icon
-}
-
-type Notification struct {
-	Event       string
-	DisplayName string
-	Enabled     bool
-}
-
-func (c *client) Register(n []Notification) os.Error {
+func (c *Client) Register(n []Notification) os.Error {
 	s := fmt.Sprintf(
 		"Application-Name: %s\r\n"+
-			"Notifications-Count: %d\r\n\r\n",c.appName, len(n))
+			"Notifications-Count: %d\r\n\r\n",c.AppName, len(n))
 	for _, i := range n {
 		s += "Notification-Name: " + i.Event + "\r\n" +
 			"Notification-Display-Name: " + i.DisplayName + "\r\n" +
@@ -211,22 +191,15 @@ func (c *client) Register(n []Notification) os.Error {
 	return err
 }
 
-func (c *client) Notify(event string, title string, text string, etc ...string) os.Error {
-	icon := c.icon
-	callback := ""
-	if len(etc) > 0 {
-		icon = etc[0]
-	}
-	if len(etc) > 1 {
-		callback = etc[1]
-	}
+func (c *Client) Notify(m *Message) os.Error {
 	b, err := c.send("NOTIFY",
-		"Application-Name: "+c.appName+"\r\n"+
-			"Notification-Name: "+event+"\r\n"+
-			"Notification-Title: "+title+"\r\n"+
-			"Notification-Text: "+text+"\r\n"+
-			"Notification-Icon: "+icon+"\r\n"+
-			"Notification-Callback-Target: "+callback+"\r\n"+
+		"Application-Name: "+c.AppName+"\r\n"+
+			"Notification-Name: "+m.Event+"\r\n"+
+			"Notification-Title: "+m.Title+"\r\n"+
+			"Notification-Text: "+m.Text+"\r\n"+
+			"Notification-Icon: "+m.Icon+"\r\n"+
+			"Notification-Callback-Target: "+m.Callback+"\r\n"+
+			"Notification-Display-Name: "+m.DisplayName+"\r\n"+
 			"\r\n")
 	if err == nil {
 		res := string(b)

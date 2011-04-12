@@ -15,6 +15,7 @@ func main() {
 	noRegister := flag.Bool("nr", false, "no register")
 	hashAlgorithm := flag.String("ha", "SHA256", "hash algorithm")
 	encryptAlgorithm := flag.String("ea", "AES", "encrypt algorithm")
+	displayName := flag.String("d", "", "display name")
 	password := flag.String("p", "", "password")
 	event := flag.String("e", DEFAULT_NOTIFY_NAME, "event")
 	flag.Parse()
@@ -29,13 +30,13 @@ func main() {
 	url := flag.Arg(3)
 
 	client := gntp.NewClient()
-	client.SetAppName(*appname)
-	client.SetServer(*server)
-	client.SetPassword(*password)
-	client.SetHashAlgorithm(*hashAlgorithm)
-	client.SetEncryptAlgorithm(*encryptAlgorithm)
+	client.AppName = *appname
+	client.Server = *server
+	client.Password = *password
+	client.HashAlgorithm = *hashAlgorithm
+	client.EncryptAlgorithm = *encryptAlgorithm
 
-	n := []gntp.Notification{{DEFAULT_NOTIFY_NAME, DEFAULT_NOTIFY_NAME, true}}
+	n := []gntp.Notification{{DEFAULT_NOTIFY_NAME, *displayName, true}}
 	if *event != DEFAULT_NOTIFY_NAME {
 		n = append(n, gntp.Notification{*event, *event, true})
 	}
@@ -47,7 +48,7 @@ func main() {
 			return
 		}
 	}
-	err = client.Notify(*event, title, message, icon, url)
+	err = client.Notify(&gntp.Message{*event, title, message, icon, url, *displayName})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.String())
 		return
