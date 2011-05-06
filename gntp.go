@@ -47,6 +47,10 @@ func makeRand(size int) []byte {
 	return r
 }
 
+func sanitize(str string) string {
+	return strings.Replace(str, "\r\n", "\n", -1)
+}
+
 func makeSalt(size int) []byte {
 	s := make([]byte, size)
 	cc := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -169,10 +173,10 @@ func NewClient() *Client {
 func (c *Client) Register(n []Notification) os.Error {
 	s := fmt.Sprintf(
 		"Application-Name: %s\r\n"+
-			"Notifications-Count: %d\r\n\r\n",c.AppName, len(n))
+			"Notifications-Count: %d\r\n\r\n",sanitize(c.AppName), len(n))
 	for _, i := range n {
-		s += "Notification-Name: " + i.Event + "\r\n" +
-			"Notification-Display-Name: " + i.DisplayName + "\r\n" +
+		s += "Notification-Name: " + sanitize(i.Event) + "\r\n" +
+			"Notification-Display-Name: " + sanitize(i.DisplayName) + "\r\n" +
 			"Notification-Enabled: True\r\n\r\n"
 	}
 	b, err := c.send("REGISTER", s)
@@ -193,13 +197,13 @@ func (c *Client) Register(n []Notification) os.Error {
 
 func (c *Client) Notify(m *Message) os.Error {
 	b, err := c.send("NOTIFY",
-		"Application-Name: "+c.AppName+"\r\n"+
-			"Notification-Name: "+m.Event+"\r\n"+
-			"Notification-Title: "+m.Title+"\r\n"+
-			"Notification-Text: "+m.Text+"\r\n"+
-			"Notification-Icon: "+m.Icon+"\r\n"+
-			"Notification-Callback-Target: "+m.Callback+"\r\n"+
-			"Notification-Display-Name: "+m.DisplayName+"\r\n"+
+		"Application-Name: "+sanitize(c.AppName)+"\r\n"+
+			"Notification-Name: "+sanitize(m.Event)+"\r\n"+
+			"Notification-Title: "+sanitize(m.Title)+"\r\n"+
+			"Notification-Text: "+sanitize(m.Text)+"\r\n"+
+			"Notification-Icon: "+sanitize(m.Icon)+"\r\n"+
+			"Notification-Callback-Target: "+sanitize(m.Callback)+"\r\n"+
+			"Notification-Display-Name: "+sanitize(m.DisplayName)+"\r\n"+
 			"\r\n")
 	if err == nil {
 		res := string(b)
