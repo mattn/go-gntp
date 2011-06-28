@@ -183,7 +183,7 @@ func (c *Client) Register(n []Notification) os.Error {
 	if err == nil {
 		res := string(b)
 		if res[0:15] == "GNTP/1.0 -ERROR" {
-			lines := strings.Split(res, "\r\n", 200)
+			lines := strings.Split(res, "\r\n")
 			for n := range lines {
 				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
 					err = os.NewError(lines[n][19:])
@@ -208,7 +208,7 @@ func (c *Client) Notify(m *Message) os.Error {
 	if err == nil {
 		res := string(b)
 		if res[0:15] == "GNTP/1.0 -ERROR" {
-			lines := strings.Split(res, "\r\n", 200)
+			lines := strings.Split(res, "\r\n")
 			for n := range lines {
 				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
 					err = os.NewError(lines[n][19:])
