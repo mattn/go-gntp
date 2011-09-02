@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gntp"
+	"github.com/mattn/go-gntp"
 	"flag"
 	"fmt"
 	"os"
