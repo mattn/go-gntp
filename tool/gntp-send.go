@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/mattn/go-gntp"
 	"flag"
 	"fmt"
+	"github.com/mattn/go-gntp/gntp"
 	"os"
 )
 
@@ -40,17 +40,17 @@ func main() {
 	if *event != DEFAULT_NOTIFY_NAME {
 		n = append(n, gntp.Notification{*event, *event, true})
 	}
-	var err os.Error
+	var err error
 	if *noRegister == false {
 		err = client.Register(n)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.String())
+			fmt.Fprintln(os.Stderr, err.Error())
 			return
 		}
 	}
 	err = client.Notify(&gntp.Message{*event, title, message, icon, url, *displayName})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.String())
+		fmt.Fprintln(os.Stderr, err.Error())
 		return
 	}
 }

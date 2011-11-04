@@ -1,17 +1,18 @@
 package gntp
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/des"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
-	"crypto/aes"
-	"crypto/des"
-	"crypto/cipher"
+	"errors"
+
 	"fmt"
 	"hash"
 	"io/ioutil"
 	"net"
-	"os"
 	"rand"
 	"strings"
 )
@@ -60,7 +61,7 @@ func makeSalt(size int) []byte {
 	return s
 }
 
-func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
+func (c *Client) send(method string, stm string) (ret []byte, err error) {
 	conn, err := net.Dial("tcp", c.Server)
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
 		case "SHA256":
 			ha = sha256.New()
 		default:
-			return nil, os.NewError("unknown hash algorithm")
+			return nil, errors.New("unknown hash algorithm")
 		}
 		ha.Write([]byte(c.Password))
 		ha.Write(salt)
@@ -98,7 +99,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
 		switch c.EncryptAlgorithm {
 		case "AES":
 			if len(hk) < 24 {
-				return nil, os.NewError("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
+				return nil, errors.New("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
 			}
 			ci, err := aes.NewCipher(hk[0:24])
 			if err != nil {
@@ -116,7 +117,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
 			encHdr += fmt.Sprintf(":%X", iv)
 		case "DES":
 			if len(hk) < 8 {
-				return nil, os.NewError("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
+				return nil, errors.New("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
 			}
 			ci, err := des.NewCipher(hk[0:8])
 			if err != nil {
@@ -134,7 +135,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
 			encHdr += fmt.Sprintf(":%X", iv)
 		case "3DES":
 			if len(hk) < 24 {
-				return nil, os.NewError("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
+				return nil, errors.New("key length is too short. maybe hash algorithm is wrong for this encrypt algorithm")
 			}
 			ci, err := des.NewTripleDESCipher(hk[0:24])
 			if err != nil {
@@ -153,7 +154,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err os.Error) {
 		case "NONE":
 			out = in
 		default:
-			return nil, os.NewError("unknown encrypt algorithm")
+			return nil, errors.New("unknown encrypt algorithm")
 		}
 
 		conn.Write([]byte("GNTP/1.0 " + method + " " + encHdr + " " + hashHdr + "\r\n"))
@@ -170,10 +171,10 @@ func NewClient() *Client {
 	return &Client{"localhost:23053", "", "gntp-send", "MD5", "NONE"}
 }
 
-func (c *Client) Register(n []Notification) os.Error {
+func (c *Client) Register(n []Notification) error {
 	s := fmt.Sprintf(
 		"Application-Name: %s\r\n"+
-			"Notifications-Count: %d\r\n\r\n",sanitize(c.AppName), len(n))
+			"Notifications-Count: %d\r\n\r\n", sanitize(c.AppName), len(n))
 	for _, i := range n {
 		s += "Notification-Name: " + sanitize(i.Event) + "\r\n" +
 			"Notification-Display-Name: " + sanitize(i.DisplayName) + "\r\n" +
@@ -186,7 +187,7 @@ func (c *Client) Register(n []Notification) os.Error {
 			lines := strings.Split(res, "\r\n")
 			for n := range lines {
 				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
-					err = os.NewError(lines[n][19:])
+					err = errors.New(lines[n][19:])
 					break
 				}
 			}
@@ -195,7 +196,7 @@ func (c *Client) Register(n []Notification) os.Error {
 	return err
 }
 
-func (c *Client) Notify(m *Message) os.Error {
+func (c *Client) Notify(m *Message) error {
 	b, err := c.send("NOTIFY",
 		"Application-Name: "+sanitize(c.AppName)+"\r\n"+
 			"Notification-Name: "+sanitize(m.Event)+"\r\n"+
@@ -211,7 +212,7 @@ func (c *Client) Notify(m *Message) os.Error {
 			lines := strings.Split(res, "\r\n")
 			for n := range lines {
 				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
-					err = os.NewError(lines[n][19:])
+					err = errors.New(lines[n][19:])
 					break
 				}
 			}
