@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/mattn/go-gntp/gntp"
 	"os"
+	"strings"
 )
 
 const DEFAULT_NOTIFY_NAME = "default"
@@ -18,16 +20,28 @@ func main() {
 	displayName := flag.String("d", "", "display name")
 	password := flag.String("p", "", "password")
 	event := flag.String("e", DEFAULT_NOTIFY_NAME, "event")
+	read_stdin := flag.Bool("i", false, "read from stdin")
 	flag.Parse()
-	if flag.NArg() < 2 {
+	if !*read_stdin && flag.NArg() < 2 {
 		fmt.Fprintf(os.Stderr, "usage: gntp-send [options] title message [icon] [url]\n")
 		flag.PrintDefaults()
 		return
 	}
-	title := flag.Arg(0)
-	message := flag.Arg(1)
-	icon := flag.Arg(2)
-	url := flag.Arg(3)
+	var title, message, icon, url string
+	if *read_stdin {
+		stdin := bufio.NewReader(os.Stdin)
+		title, _ = stdin.ReadString('\n')
+		message, _ = stdin.ReadString(0)
+		title = strings.TrimSpace(title)
+		message = strings.TrimSpace(message)
+		icon = flag.Arg(0)
+		url = flag.Arg(1)
+	} else {
+		title = flag.Arg(0)
+		message = flag.Arg(1)
+		icon = flag.Arg(2)
+		url = flag.Arg(3)
+	}
 
 	client := gntp.NewClient()
 	client.AppName = *appname
