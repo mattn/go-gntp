@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"math/rand"
 	"net"
-	"rand"
 	"strings"
 )
 
