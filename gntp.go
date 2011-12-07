@@ -8,7 +8,6 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"errors"
-
 	"fmt"
 	"hash"
 	"io/ioutil"
@@ -82,16 +81,16 @@ func (c *Client) send(method string, stm string) (ret []byte, err error) {
 		}
 		ha.Write([]byte(c.Password))
 		ha.Write(salt)
-		hv := ha.Sum()
+		hv := ha.Sum(nil)
 		ha.Reset()
 		ha.Write(hv)
-		key := ha.Sum()
+		key := ha.Sum(nil)
 		hashHdr := fmt.Sprintf("%s:%X.%X", c.HashAlgorithm, key, salt)
 
 		ha.Reset()
 		ha.Write([]byte(c.Password))
 		ha.Write(salt)
-		hk := ha.Sum()
+		hk := ha.Sum(nil)
 
 		encHdr := c.EncryptAlgorithm
 		in := ([]byte)(stm)
