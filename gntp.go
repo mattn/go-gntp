@@ -60,7 +60,7 @@ func makeSalt(size int) []byte {
 	return s
 }
 
-func (c *Client) send(method string, stm string) (ret []byte, err error) {
+func (c *Client) send(method string, stm []byte) (ret []byte, err error) {
 	conn, err := net.Dial("tcp", c.Server)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err error) {
 		hk := ha.Sum(nil)
 
 		encHdr := c.EncryptAlgorithm
-		in := ([]byte)(stm)
+		in := stm
 		var out []byte
 		switch c.EncryptAlgorithm {
 		case "AES":
@@ -161,7 +161,7 @@ func (c *Client) send(method string, stm string) (ret []byte, err error) {
 		conn.Write([]byte("\r\n\r\n"))
 	} else {
 		conn.Write([]byte(
-			"GNTP/1.0 " + method + " NONE\r\n" + stm + "\r\n"))
+			"GNTP/1.0 " + method + " NONE\r\n" + string(stm) + "\r\n"))
 	}
 	return ioutil.ReadAll(conn)
 }
@@ -179,7 +179,7 @@ func (c *Client) Register(n []Notification) error {
 			"Notification-Display-Name: " + sanitize(i.DisplayName) + "\r\n" +
 			"Notification-Enabled: True\r\n\r\n"
 	}
-	b, err := c.send("REGISTER", s)
+	b, err := c.send("REGISTER", []byte(s))
 	if err == nil {
 		res := string(b)
 		if res[0:15] == "GNTP/1.0 -ERROR" {
@@ -196,20 +196,28 @@ func (c *Client) Register(n []Notification) error {
 }
 
 func (c *Client) Notify(m *Message) error {
-	if b, err := ioutil.ReadFile(m.Icon); err == nil {
+	identify, err := ioutil.ReadFile(m.Icon)
+	if err == nil {
 		ha := md5.New()
-		ha.Write(b)
-		m.Icon = fmt.Sprintf("x-growl-resource:%X", ha.Sum(nil))
+		ha.Write(identify)
+		m.Icon = fmt.Sprintf("x-growl-resource://%X", ha.Sum(nil))
 	}
-	b, err := c.send("NOTIFY",
-		"Application-Name: "+sanitize(c.AppName)+"\r\n"+
+	data := []byte(
+			"Application-Name: "+sanitize(c.AppName)+"\r\n"+
 			"Notification-Name: "+sanitize(m.Event)+"\r\n"+
 			"Notification-Title: "+sanitize(m.Title)+"\r\n"+
 			"Notification-Text: "+sanitize(m.Text)+"\r\n"+
 			"Notification-Icon: "+sanitize(m.Icon)+"\r\n"+
 			"Notification-Callback-Target: "+sanitize(m.Callback)+"\r\n"+
-			"Notification-Display-Name: "+sanitize(m.DisplayName)+"\r\n"+
-			"\r\n")
+			"Notification-Display-Name: "+sanitize(m.DisplayName)+"\r\n\r\n")
+	if len(identify) > 0 {
+		data = append(data, []byte(
+			"Identifier: " + string(m.Icon[19:]) + "\r\n"+
+			fmt.Sprintf("Length: %d\r\n\r\n", len(identify)))...)
+		data = append(data, identify...)
+		data = append(data, []byte("\r\n\r\n")...)
+	}
+	b, err := c.send("NOTIFY", data)
 	if err == nil {
 		res := string(b)
 		if res[0:15] == "GNTP/1.0 -ERROR" {
