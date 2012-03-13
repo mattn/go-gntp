@@ -199,7 +199,7 @@ func (c *Client) Notify(m *Message) error {
 	if b, err := ioutil.ReadFile(m.Icon); err == nil {
 		ha := md5.New()
 		ha.Write(b)
-		m.Icon = "x-growl-resource://" + string(ha.Sum(nil))
+		m.Icon = fmt.Sprintf("x-growl-resource:%X", ha.Sum(nil))
 	}
 	b, err := c.send("NOTIFY",
 		"Application-Name: "+sanitize(c.AppName)+"\r\n"+
