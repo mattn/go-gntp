@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/mattn/go-gntp"
+	".."
 	"os"
 	"strings"
 )
