@@ -175,9 +175,15 @@ func (c *Client) Register(n []Notification) error {
 	fmt.Fprintf(data, "Application-Name: %s\r\n", sanitize(c.AppName))
 	fmt.Fprintf(data, "Notifications-Count: %d\r\n\r\n", len(n))
 	for _, i := range n {
+		var enabled string
+		if i.Enabled {
+			enabled = "True"
+		} else {
+			enabled = "False"
+		}
 		fmt.Fprintf(data, "Notification-Name: %s\r\n", sanitize(i.Event))
 		fmt.Fprintf(data, "Notification-Display-Name: %s\r\n", sanitize(i.DisplayName))
-		fmt.Fprintf(data, "Notification-Enabled: True\r\n\r\n")
+		fmt.Fprintf(data, "Notification-Enabled: %s\r\n\r\n", enabled)
 	}
 	b, err := c.send("REGISTER", data.Bytes())
 	if err == nil {
