@@ -5,4 +5,4 @@ before_install:
   - go get github.com/axw/gocov/gocov
   - go get github.com/mattn/goveralls
 script:
-    - $HOME/gopath/bin/goveralls kjg9f8xjiJvCnPuyLhIwZa14jIMlOeBV4
+  - $HOME/gopath/bin/goveralls -repotoken kjg9f8xjiJvCnPuyLhIwZa14jIMlOeBV4
