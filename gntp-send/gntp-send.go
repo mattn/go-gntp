@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/mattn/go-gntp"
 	"os"
 	"strings"
+
+	"github.com/mattn/go-gntp"
 )
 
-const DEFAULT_NOTIFY_NAME = "default"
+const DefaultNotifyName = "default"
 
 func main() {
 	server := flag.String("s", "localhost:23053", "growl server(host:port)")
@@ -19,16 +20,16 @@ func main() {
 	encryptAlgorithm := flag.String("ea", "AES", "encrypt algorithm")
 	displayName := flag.String("d", "", "display name")
 	password := flag.String("p", "", "password")
-	event := flag.String("e", DEFAULT_NOTIFY_NAME, "event")
-	read_stdin := flag.Bool("i", false, "read from stdin")
+	event := flag.String("e", DefaultNotifyName, "event")
+	readStdin := flag.Bool("i", false, "read from stdin")
 	flag.Parse()
-	if !*read_stdin && flag.NArg() < 2 {
+	if !*readStdin && flag.NArg() < 2 {
 		fmt.Fprintf(os.Stderr, "usage: gntp-send [options] title message [icon] [url]\n")
 		flag.PrintDefaults()
 		return
 	}
 	var title, message, icon, url string
-	if *read_stdin {
+	if *readStdin {
 		stdin := bufio.NewReader(os.Stdin)
 		title, _ = stdin.ReadString('\n')
 		message, _ = stdin.ReadString(0)
@@ -50,21 +51,21 @@ func main() {
 	client.HashAlgorithm = *hashAlgorithm
 	client.EncryptAlgorithm = *encryptAlgorithm
 
-	n := []gntp.Notification{{DEFAULT_NOTIFY_NAME, *displayName, true}}
-	if *event != DEFAULT_NOTIFY_NAME {
+	n := []gntp.Notification{{DefaultNotifyName, *displayName, true}}
+	if *event != DefaultNotifyName {
 		n = append(n, gntp.Notification{*event, *event, true})
 	}
 	var err error
 	if *noRegister == false {
 		err = client.Register(n)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
+			fmt.Fprintln(os.Stderr, err)
 			return
 		}
 	}
 	err = client.Notify(&gntp.Message{*event, title, message, icon, url, *displayName})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err)
 		return
 	}
 }

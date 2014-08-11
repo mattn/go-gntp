@@ -1,6 +1,7 @@
 package gntp
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
@@ -41,8 +42,8 @@ type Message struct {
 
 func makeRand(size int) []byte {
 	r := make([]byte, size)
-	for n := 0; n < len(r); n++ {
-		r[n] = uint8(rand.Int() % 256)
+	for i := range r {
+		r[i] = byte(rand.Int() % 256)
 	}
 	return r
 }
@@ -54,8 +55,8 @@ func sanitize(str string) string {
 func makeSalt(size int) []byte {
 	s := make([]byte, size)
 	cc := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	for n := 0; n < len(s); n++ {
-		s[n] = uint8(cc[rand.Int()%len(cc)])
+	for i := range s {
+		s[i] = byte(cc[rand.Int()%len(cc)])
 	}
 	return s
 }
@@ -156,12 +157,11 @@ func (c *Client) send(method string, stm []byte) (ret []byte, err error) {
 			return nil, errors.New("unknown encrypt algorithm")
 		}
 
-		conn.Write([]byte("GNTP/1.0 " + method + " " + encHdr + " " + hashHdr + "\r\n"))
+		conn.Write([]byte(fmt.Sprintf("GNTP/1.0 %s %s %s\r\n", method, encHdr, hashHdr)))
 		conn.Write(out)
 		conn.Write([]byte("\r\n\r\n"))
 	} else {
-		conn.Write([]byte(
-			"GNTP/1.0 " + method + " NONE\r\n" + string(stm) + "\r\n"))
+		conn.Write([]byte(fmt.Sprintf("GNTP/1.0 %s NONE\r\n%s\r\n", method, string(stm))))
 	}
 	return ioutil.ReadAll(conn)
 }
@@ -171,22 +171,28 @@ func NewClient() *Client {
 }
 
 func (c *Client) Register(n []Notification) error {
-	s := fmt.Sprintf(
-		"Application-Name: %s\r\n"+
-			"Notifications-Count: %d\r\n\r\n", sanitize(c.AppName), len(n))
+	data := new(bytes.Buffer)
+	fmt.Fprintf(data, "Application-Name: %s\r\n", sanitize(c.AppName))
+	fmt.Fprintf(data, "Notifications-Count: %d\r\n\r\n", len(n))
 	for _, i := range n {
-		s += "Notification-Name: " + sanitize(i.Event) + "\r\n" +
-			"Notification-Display-Name: " + sanitize(i.DisplayName) + "\r\n" +
-			"Notification-Enabled: True\r\n\r\n"
+		var enabled string
+		if i.Enabled {
+			enabled = "True"
+		} else {
+			enabled = "False"
+		}
+		fmt.Fprintf(data, "Notification-Name: %s\r\n", sanitize(i.Event))
+		fmt.Fprintf(data, "Notification-Display-Name: %s\r\n", sanitize(i.DisplayName))
+		fmt.Fprintf(data, "Notification-Enabled: %s\r\n\r\n", enabled)
 	}
-	b, err := c.send("REGISTER", []byte(s))
+	b, err := c.send("REGISTER", data.Bytes())
 	if err == nil {
 		res := string(b)
-		if len(res) > 15 && res[0:15] == "GNTP/1.0 -ERROR" {
+		if strings.HasPrefix(res, "GNTP/1.0 -ERROR") {
 			lines := strings.Split(res, "\r\n")
-			for n := range lines {
-				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
-					err = errors.New(lines[n][19:])
+			for _, l := range lines {
+				if strings.HasPrefix(l, "Error-Description:") {
+					err = errors.New(l[19:])
 					break
 				}
 			}
@@ -202,29 +208,28 @@ func (c *Client) Notify(m *Message) error {
 		ha.Write(identify)
 		m.Icon = fmt.Sprintf("x-growl-resource://%X", ha.Sum(nil))
 	}
-	data := []byte(
-			"Application-Name: "+sanitize(c.AppName)+"\r\n"+
-			"Notification-Name: "+sanitize(m.Event)+"\r\n"+
-			"Notification-Title: "+sanitize(m.Title)+"\r\n"+
-			"Notification-Text: "+sanitize(m.Text)+"\r\n"+
-			"Notification-Icon: "+sanitize(m.Icon)+"\r\n"+
-			"Notification-Callback-Target: "+sanitize(m.Callback)+"\r\n"+
-			"Notification-Display-Name: "+sanitize(m.DisplayName)+"\r\n\r\n")
+	data := new(bytes.Buffer)
+	fmt.Fprintf(data, "Application-Name: %s\r\n", sanitize(c.AppName))
+	fmt.Fprintf(data, "Notification-Name: %s\r\n", sanitize(m.Event))
+	fmt.Fprintf(data, "Notification-Title: %s\r\n", sanitize(m.Title))
+	fmt.Fprintf(data, "Notification-Text: %s\r\n", sanitize(m.Text))
+	fmt.Fprintf(data, "Notification-Icon: %s\r\n", sanitize(m.Icon))
+	fmt.Fprintf(data, "Notification-Callback-Target: %s\r\n", sanitize(m.Callback))
+	fmt.Fprintf(data, "Notification-Display-Name: %s\r\n\r\n", sanitize(m.DisplayName))
 	if len(identify) > 0 {
-		data = append(data, []byte(
-			"Identifier: " + string(m.Icon[19:]) + "\r\n"+
-			fmt.Sprintf("Length: %d\r\n\r\n", len(identify)))...)
-		data = append(data, identify...)
-		data = append(data, []byte("\r\n\r\n")...)
+		fmt.Fprintf(data, "Identifier: %s\r\n", m.Icon[19:])
+		fmt.Fprintf(data, "Length: %d\r\n\r\n", len(identify))
+		data.Write(identify)
+		data.Write([]byte("\r\n\r\n"))
 	}
-	b, err := c.send("NOTIFY", data)
+	b, err := c.send("NOTIFY", data.Bytes())
 	if err == nil {
 		res := string(b)
-		if res[0:15] == "GNTP/1.0 -ERROR" {
+		if strings.HasPrefix(res, "GNTP/1.0 -ERROR") {
 			lines := strings.Split(res, "\r\n")
-			for n := range lines {
-				if len(lines[n]) > 18 && lines[n][0:18] == "Error-Description:" {
-					err = errors.New(lines[n][19:])
+			for _, l := range lines {
+				if strings.HasPrefix(l, "Error-Description:") {
+					err = errors.New(l[19:])
 					break
 				}
 			}
