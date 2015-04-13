@@ -19,6 +19,7 @@ func main() {
 	hashAlgorithm := flag.String("ha", "SHA256", "hash algorithm")
 	encryptAlgorithm := flag.String("ea", "AES", "encrypt algorithm")
 	displayName := flag.String("d", "", "display name")
+	sticky := flag.Bool("t", false, "sticky")
 	password := flag.String("p", "", "password")
 	event := flag.String("e", DefaultNotifyName, "event")
 	readStdin := flag.Bool("i", false, "read from stdin")
@@ -63,7 +64,15 @@ func main() {
 			return
 		}
 	}
-	err = client.Notify(&gntp.Message{*event, title, message, icon, url, *displayName})
+	err = client.Notify(&gntp.Message{
+		Event:       *event,
+		Title:       title,
+		Text:        message,
+		Icon:        icon,
+		Callback:    url,
+		DisplayName: *displayName,
+		Sticky:      *sticky,
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
