@@ -38,6 +38,7 @@ type Message struct {
 	Icon        string
 	Callback    string
 	DisplayName string
+	Sticky      bool
 }
 
 func makeRand(size int) []byte {
@@ -216,6 +217,10 @@ func (c *Client) Notify(m *Message) error {
 	fmt.Fprintf(data, "Notification-Icon: %s\r\n", sanitize(m.Icon))
 	fmt.Fprintf(data, "Notification-Callback-Target: %s\r\n", sanitize(m.Callback))
 	fmt.Fprintf(data, "Notification-Display-Name: %s\r\n\r\n", sanitize(m.DisplayName))
+
+	if m.Sticky {
+		fmt.Fprintf(data, "Notification-Sticky: True\r\n\r\n")
+	}
 	if len(identify) > 0 {
 		fmt.Fprintf(data, "Identifier: %s\r\n", m.Icon[19:])
 		fmt.Fprintf(data, "Length: %d\r\n\r\n", len(identify))
