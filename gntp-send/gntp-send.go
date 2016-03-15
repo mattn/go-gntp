@@ -63,6 +63,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			return
 		}
+		os.Exit(1)
 	}
 	err = client.Notify(&gntp.Message{
 		Event:       *event,
