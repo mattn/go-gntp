@@ -1,0 +1,10 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/mattn/dboxpaper
+    docker:
+      - image: circleci/golang:1.8.0
+ steps:
+      - checkout
+      - run: go get ./...
+      - run: go test -v ./...
