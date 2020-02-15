@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/mattn/dboxpaper
     docker:
-      - image: circleci/golang:1.13.5
+      - image: circleci/golang:1.13.8
  steps:
       - checkout
       - run: go get ./...
